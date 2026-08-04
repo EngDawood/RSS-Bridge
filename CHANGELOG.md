@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.3.0...v1.4.0) (2026-08-04)
+
+
+### Features
+
+* implement auto-disable for feeds after consecutive failures ([9aceaa7](https://github.com/EngDawood/rss-cloudflare/commit/9aceaa7051d91c8b8cf6d5b00c91299e2e1e4ce1))
+
 # [1.3.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.2.0...v1.3.0) (2026-06-27)
 
 
