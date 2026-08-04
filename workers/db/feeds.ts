@@ -129,6 +129,16 @@ export async function recordFeedFetchFailure(db: D1Database, feedId: string, err
 	).bind(now, error.slice(0, 500), feedId).run();
 }
 
+/**
+ * Auto-disable a feed that has failed past the alerting ceiling. The failure
+ * counter is reset so a manual re-enable gets a fresh budget instead of tripping
+ * the ceiling again on its first failure; last_error is kept for diagnosis.
+ */
+export async function disableFeedAfterFailures(db: D1Database, feedId: string): Promise<void> {
+	await db.prepare('UPDATE feeds SET enabled = 0, consecutive_failures = 0 WHERE id = ?')
+		.bind(feedId).run();
+}
+
 export async function getFeedConsecutiveFailures(db: D1Database, feedId: string): Promise<number> {
 	const row = await db.prepare('SELECT consecutive_failures FROM feeds WHERE id = ?')
 		.bind(feedId).first<{ consecutive_failures: number }>();
