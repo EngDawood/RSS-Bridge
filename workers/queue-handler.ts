@@ -16,10 +16,8 @@ import {
 	getWorkflowsForFeed,
 	listNewItems,
 	recordFeedFetchSuccess,
-	recordFeedFetchFailure,
-	getFeedConsecutiveFailures,
-	disableFeedAfterFailures,
 } from './db/d1';
+import { recordFailureAndAlert } from './services/feed-health';
 import { embedItems } from './services/embed';
 import { launchWorkflowRun } from './workflows/trigger';
 import { maybeEnrichSummary } from './services/ai-summarizer';
@@ -96,16 +94,7 @@ async function processFetchTask(task: FetchTask, env: Env): Promise<void> {
 
 	if (result.items.length === 0) {
 		const errMsg = result.errors.map(e => e.message).join('; ') || 'All instances returned empty results';
-		await recordFeedFetchFailure(env.DB, feedId, errMsg);
-		const failures = await getFeedConsecutiveFailures(env.DB, feedId);
-		const feedName = feed.title || feed.source_value;
-		if (failures >= DEGRADED_DISABLE_AT) {
-			// Feed is dead, not flaky. Disable it and say so once — then stay quiet.
-			await disableFeedAfterFailures(env.DB, feedId);
-			await sendFeedDisabledAlert(env, feedName, feedId, failures, errMsg);
-		} else if (DEGRADED_ALERT_AT.includes(failures)) {
-			await sendDegradedFeedAlert(env, feedName, feedId, failures, errMsg);
-		}
+		await recordFailureAndAlert(env, feedId, feed.title || feed.source_value, errMsg);
 		return;
 	}
 
@@ -185,70 +174,6 @@ async function processFetchTask(task: FetchTask, env: Env): Promise<void> {
 			});
 		}
 	}
-}
-
-/**
- * Consecutive-failure counts that produce a degraded-feed alert. Deliberately a
- * fixed list, not a modulo: a permanently dead feed must not alert forever.
- */
-const DEGRADED_ALERT_AT = [5, 20, 100];
-
-/** Consecutive failures after which a feed is auto-disabled and alerting stops. */
-const DEGRADED_DISABLE_AT = 200;
-
-/**
- * Send an admin Telegram DM. Alerting must never fail a fetch, so errors are
- * logged and swallowed.
- */
-async function sendAdminAlert(env: Env, html: string): Promise<void> {
-	try {
-		const adminId = parseInt(env.ADMIN_TELEGRAM_ID, 10);
-		if (isNaN(adminId)) return;
-		const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
-		await bot.api.sendMessage(adminId, html, { parse_mode: 'HTML' });
-	} catch (err) {
-		console.error('[Queue] Failed to send admin alert:', err);
-	}
-}
-
-/**
- * Warn the admin that a feed is failing. Fires only at DEGRADED_ALERT_AT counts.
- */
-async function sendDegradedFeedAlert(
-	env: Env,
-	feedName: string,
-	feedId: string,
-	failures: number,
-	lastError: string,
-): Promise<void> {
-	await sendAdminAlert(
-		env,
-		`⚠️ <b>Feed degraded</b>\n\n` +
-		`<b>${feedName}</b> (<code>${feedId}</code>)\n` +
-		`Failed <b>${failures}×</b> in a row.\n\n` +
-		`Last error:\n<code>${lastError.slice(0, 300)}</code>`,
-	);
-}
-
-/**
- * Final notice for a feed that crossed DEGRADED_DISABLE_AT and has been disabled.
- * Nothing further is sent for this feed until it is re-enabled.
- */
-async function sendFeedDisabledAlert(
-	env: Env,
-	feedName: string,
-	feedId: string,
-	failures: number,
-	lastError: string,
-): Promise<void> {
-	await sendAdminAlert(
-		env,
-		`🛑 <b>Feed auto-disabled</b>\n\n` +
-		`<b>${feedName}</b> (<code>${feedId}</code>)\n` +
-		`Failed <b>${failures}×</b> in a row — no further alerts for this feed.\n\n` +
-		`Last error:\n<code>${lastError.slice(0, 300)}</code>\n\n` +
-		`Re-enable it once the source works again.`,
-	);
 }
 
 /**
