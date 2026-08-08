@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.4.0...v1.5.0) (2026-08-04)
+
+
+### Features
+
+* enhance feed health monitoring with failure alerts and auto-disable logic ([49655fa](https://github.com/EngDawood/rss-cloudflare/commit/49655fad6a96cccbef4acd45d2a3b1bd52b91a7a))
+
 # [1.4.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.3.0...v1.4.0) (2026-08-04)
 
 
