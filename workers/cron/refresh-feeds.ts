@@ -1,5 +1,5 @@
 import { getFeeds, upsertItems, recordFeedFetchSuccess } from '../db/d1';
-import { fetchForSource } from '../services/source-fetcher';
+import { fetchForSource, isPushSource } from '../services/source-fetcher';
 import { recordFailureAndAlert } from '../services/feed-health';
 import type { ChannelSource } from '../types/telegram';
 
@@ -13,7 +13,9 @@ import type { ChannelSource } from '../types/telegram';
 export async function refreshSavedFeeds(env: Env): Promise<void> {
 	const db = env.DB;
 	const feeds = await getFeeds(db);
-	const enabled = feeds.filter(f => f.enabled === 1);
+	// Push feeds (Folo webhook) have no pollable URL — polling them would produce
+	// an endless empty result and a bogus "feed degraded" alert.
+	const enabled = feeds.filter(f => f.enabled === 1 && !isPushSource(f.source_type));
 
 	await Promise.allSettled(
 		enabled.map(async (feed) => {

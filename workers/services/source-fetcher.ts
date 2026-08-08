@@ -51,10 +51,27 @@ async function getConfiguredInstances(env: Env | undefined, type: 'rssbridge' | 
 }
 
 /**
+ * Source types whose items arrive by push (webhook) instead of polling. They have
+ * no fetchable URL, so every poll path must skip them — otherwise the health
+ * tracker reads the empty result as a failure and marks the feed degraded.
+ */
+const PUSH_SOURCE_TYPES: readonly string[] = ['folo_push'];
+
+export function isPushSource(sourceType: string): boolean {
+	return PUSH_SOURCE_TYPES.includes(sourceType);
+}
+
+/**
  * Route to correct fetcher based on source type.
  */
 export async function fetchForSource(source: ChannelSource, env?: Env): Promise<FetchResult> {
 	const type = source.type as string;
+
+	if (isPushSource(type)) {
+		// Nothing to poll — empty, but deliberately with no errors so a caller that
+		// reaches here anyway does not record a failure.
+		return { items: [], feedTitle: '', feedLink: '', errors: [] };
+	}
 
 	switch (type) {
 		case 'instagram_user':

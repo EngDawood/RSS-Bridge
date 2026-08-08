@@ -158,8 +158,12 @@ export async function handleFoloWebhook(c: Context<HonoEnv>): Promise<Response> 
 	try {
 		const feedSourceUrl = payload.feed.siteUrl || payload.feed.url;
 		const feedTitle = payload.feed.title || feedSourceUrl;
+		// 'folo_push', not 'rss_url': feedSourceUrl is usually a site homepage rather
+		// than a feed document, and Folo already delivers these entries by webhook.
+		// Tagging it as push keeps the cron poller — and its degraded-feed alerts —
+		// away from a feed that can never be polled.
 		const dbFeed = await upsertFeedBySource(env.DB, {
-			sourceType: 'rss_url',
+			sourceType: 'folo_push',
 			sourceValue: feedSourceUrl,
 			title: feedTitle,
 		});

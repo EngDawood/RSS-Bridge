@@ -11,6 +11,7 @@ const prettyType = (t: string): string =>
     rss_url: 'RSS', rss: 'RSS', rsshub_url: 'RSSHub', rsshub: 'RSSHub',
     'rss-bridge': 'RSS-Bridge', instagram_user: 'Instagram', instagram: 'Instagram',
     instagram_tag: 'Hashtag', instagram_story: 'Story', tiktok_user: 'TikTok', tiktok: 'TikTok',
+    folo_push: 'Folo',
   } as Record<string, string>)[t]) || (t || 'feed').split('_')[0].toUpperCase();
 
 export const FeedsTab: React.FC = () => {

@@ -2,7 +2,7 @@ import type { QueueTask, FetchTask, SendTask } from './types/queue';
 import { Bot, GrammyError } from 'grammy';
 import { sendMediaToChannel, addFailedPost } from './services/telegram-bot';
 import { getAdminConfig } from './services/telegram-bot/storage/kv-operations';
-import { fetchForSource } from './services/source-fetcher';
+import { fetchForSource, isPushSource } from './services/source-fetcher';
 import { enrichFeedItems } from './utils/media-enrichment';
 import { formatFeedItem, resolveFormatSettings } from './utils/telegram-format';
 import {
@@ -80,6 +80,10 @@ async function processFetchTask(task: FetchTask, env: Env): Promise<void> {
 
 	const feed = await getFeedById(env.DB, feedId);
 	if (!feed || !feed.enabled) return;
+
+	// Push feeds (Folo webhook) deliver their own items; polling them would only
+	// ever return empty and trip the degraded-feed alert.
+	if (isPushSource(feed.source_type)) return;
 
 	// Build a minimal ChannelSource so fetchForSource can route by source_type.
 	const source: ChannelSource = {
