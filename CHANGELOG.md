@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.5.0...v1.6.0) (2026-08-08)
+
+
+### Features
+
+* add support for Folo push feeds and update related logic ([015300b](https://github.com/EngDawood/rss-cloudflare/commit/015300bbb41cb82501b56d20d42f2dbcabd74097))
+
 # [1.5.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.4.0...v1.5.0) (2026-08-04)
 
 
