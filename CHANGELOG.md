@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.6.0...v1.7.0) (2026-08-16)
+
+
+### Features
+
+* **feed-health:** detailed degraded alerts, mirror failover, alert cooldown ([02e42fc](https://github.com/EngDawood/rss-cloudflare/commit/02e42fc8fcf022cfeea324aabb98698a6ea381c8))
+
 # [1.6.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.5.0...v1.6.0) (2026-08-08)
 
 
