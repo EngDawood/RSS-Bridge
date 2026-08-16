@@ -145,6 +145,59 @@ export async function getFeedConsecutiveFailures(db: D1Database, feedId: string)
 	return row?.consecutive_failures ?? 0;
 }
 
+/** One subscribing Telegram channel, as named in a feed-health alert. */
+export interface FeedAlertSubscriber {
+	channel_id: string;
+	channel_name: string | null;   // null when the channel row is missing (orphan subscription)
+	channel_enabled: number | null;
+	media_filter: string;
+	sub_enabled: number;
+}
+
+/** Everything needed to say *which* feed broke and *who* is affected. */
+export interface FeedAlertContext {
+	feed: DbFeed | null;
+	subscribers: FeedAlertSubscriber[];
+	mcp: DbMcpSubscription | null;
+	categories: string[];
+}
+
+/**
+ * Collect the identifying + blast-radius details for a failing feed. Read only
+ * when an alert is about to be sent, so the extra queries cost nothing on the
+ * normal path. Disabled subscriptions are included deliberately — a paused
+ * channel still explains why a feed matters.
+ */
+export async function getFeedAlertContext(db: D1Database, feedId: string): Promise<FeedAlertContext> {
+	const feed = await getFeedById(db, feedId);
+
+	const subs = await db.prepare(`
+		SELECT ts.channel_id, ts.media_filter, ts.enabled AS sub_enabled,
+			c.name AS channel_name, c.enabled AS channel_enabled
+		FROM telegram_subscriptions ts
+		LEFT JOIN channels c ON c.id = ts.channel_id
+		WHERE ts.feed_id = ?
+		ORDER BY c.name ASC
+	`).bind(feedId).all<FeedAlertSubscriber>();
+
+	const mcp = await db.prepare('SELECT * FROM mcp_subscriptions WHERE feed_id = ?')
+		.bind(feedId).first<DbMcpSubscription>();
+
+	const cats = await db.prepare(`
+		SELECT c.name FROM feed_category_members m
+		JOIN feed_categories c ON c.id = m.category_id
+		WHERE m.feed_id = ?
+		ORDER BY c.name ASC
+	`).bind(feedId).all<{ name: string }>();
+
+	return {
+		feed,
+		subscribers: subs.results,
+		mcp: mcp ?? null,
+		categories: cats.results.map(r => r.name),
+	};
+}
+
 // ── Channels CRUD ─────────────────────────────────────────────────────────────
 
 export async function getChannels(db: D1Database): Promise<DbChannel[]> {

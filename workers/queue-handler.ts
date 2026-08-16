@@ -98,7 +98,7 @@ async function processFetchTask(task: FetchTask, env: Env): Promise<void> {
 
 	if (result.items.length === 0) {
 		const errMsg = result.errors.map(e => e.message).join('; ') || 'All instances returned empty results';
-		await recordFailureAndAlert(env, feedId, feed.title || feed.source_value, errMsg);
+		await recordFailureAndAlert(env, feedId, feed.title || feed.source_value, errMsg, 'queue fetch');
 		return;
 	}
 

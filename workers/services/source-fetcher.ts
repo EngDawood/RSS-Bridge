@@ -99,36 +99,58 @@ export async function fetchForSource(source: ChannelSource, env?: Env): Promise<
 }
 
 /**
- * Fetch an RSS URL, with RSS-Bridge instance failover for known bridge URLs.
- * If the URL is from a known RSS-Bridge instance and fails, try other instances.
+ * Instance families a stored full URL can be failed over across. Feeds saved as
+ * 'rss_url' usually have one public mirror's origin baked into source_value; a
+ * 502 from that single mirror does not mean the feed is broken, so try its
+ * siblings before reporting a failure to the health tracker.
+ */
+const FAILOVER_FAMILIES = ['rssbridge', 'rsshub'] as const;
+
+/**
+ * Sibling instances tried after the stored one fails. Capped so a family-wide
+ * outage cannot spend the whole cron budget walking a dead mirror list.
+ */
+const MAX_FAILOVER_ATTEMPTS = 5;
+
+/**
+ * Fetch an RSS URL, with instance failover for known RSS-Bridge / RSSHub mirrors.
+ * If the URL points at a mirror in either list and fails, retry the same path on
+ * the other mirrors in that list.
  */
 async function fetchRssUrl(url: string, env?: Env): Promise<FetchResult> {
 	// Try the original URL first
 	const result = await fetchFeed(url, undefined, env?.CACHE, FEED_CACHE_TTL);
 	if (result.items.length > 0) return result;
 
-	// Check if this is a known RSS-Bridge URL that can failover
+	// Check whether this URL belongs to a mirror family that can failover
 	try {
-		const parsed = new URL(url);
-		const origin = parsed.origin;
-		const instances = await getConfiguredInstances(env, 'rssbridge');
-		const matchedInstance = instances.find((inst) => origin === inst || url.startsWith(inst));
+		const origin = new URL(url).origin;
 
-		if (matchedInstance) {
-			// It's an RSS-Bridge URL — try other instances with the same query
-			const queryPath = url.substring(matchedInstance.length); // e.g., "/?action=display&bridge=..."
-			console.log(`[RSSBridge] URL ${matchedInstance} failed, trying other instances...`);
+		for (const family of FAILOVER_FAMILIES) {
+			const instances = await getConfiguredInstances(env, family);
+			// Instances are usually bare origins, but some carry a path prefix
+			// (e.g. rss-bridge.org/bridge01) — startsWith covers both.
+			const matchedInstance = instances.find((inst) => origin === inst || url.startsWith(inst));
+			if (!matchedInstance) continue;
 
-			for (const instance of instances) {
-				if (instance === matchedInstance) continue;
-				const altUrl = instance + queryPath;
-				console.log(`[RSSBridge] Failover trying ${instance}...`);
-				const altResult = await fetchFeed(altUrl, undefined, env?.CACHE, FEED_CACHE_TTL);
+			const path = url.substring(matchedInstance.length); // "/anthropic/news" or "/?action=display&bridge=..."
+			const siblings = instances.filter((inst) => inst !== matchedInstance);
+			const tried = siblings.slice(0, MAX_FAILOVER_ATTEMPTS);
+			console.log(`[${family}] ${matchedInstance} failed, trying ${tried.length} of ${siblings.length} sibling instances...`);
+
+			for (const instance of tried) {
+				const altResult = await fetchFeed(instance + path, undefined, env?.CACHE, FEED_CACHE_TTL);
 				if (altResult.items.length > 0) {
-					console.log(`[RSSBridge] Failover success with ${instance}`);
+					console.log(`[${family}] Failover success with ${instance}`);
 					return altResult;
 				}
 			}
+
+			if (siblings.length > tried.length) {
+				console.warn(`[${family}] Gave up after ${tried.length} siblings; ${siblings.length - tried.length} not tried`);
+			}
+			// The origin belongs to this family — no point testing the other one.
+			break;
 		}
 	} catch {
 		// URL parsing failed, just return original result

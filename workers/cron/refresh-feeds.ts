@@ -33,7 +33,7 @@ export async function refreshSavedFeeds(env: Env): Promise<void> {
 				const result = await fetchForSource(source, env);
 				if (result.items.length === 0) {
 					const errMsg = result.errors.map(e => e.message).join('; ') || 'All instances returned empty results';
-					await recordFailureAndAlert(env, feed.id, name, errMsg);
+					await recordFailureAndAlert(env, feed.id, name, errMsg, 'cron refresh');
 					return;
 				}
 				const inserted = await upsertItems(db, feed.id, result.items);
@@ -41,7 +41,7 @@ export async function refreshSavedFeeds(env: Env): Promise<void> {
 				console.log(`[RefreshFeeds] ${name}: ${inserted} new items`);
 			} catch (err) {
 				console.error(`[RefreshFeeds] Error refreshing ${name}:`, err);
-				await recordFailureAndAlert(env, feed.id, name, err instanceof Error ? err.message : String(err));
+				await recordFailureAndAlert(env, feed.id, name, err instanceof Error ? err.message : String(err), 'cron refresh');
 			}
 		})
 	);
