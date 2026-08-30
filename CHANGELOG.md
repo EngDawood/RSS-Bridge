@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.7.0...v1.8.0) (2026-08-30)
+
+
+### Features
+
+* **queue:** implement buildSendTask to optimize message size for Cloudflare Queues ([99613dd](https://github.com/EngDawood/rss-cloudflare/commit/99613dde1daef165d6369e54cfab42108aa2540b))
+
 # [1.7.0](https://github.com/EngDawood/rss-cloudflare/compare/v1.6.0...v1.7.0) (2026-08-16)
 
 
