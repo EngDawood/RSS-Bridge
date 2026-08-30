@@ -29,6 +29,7 @@ import { requireApiAuth } from '../utils/auth';
 import { getChannelsList, getChannelConfig, getFailedPosts, clearFailedPosts } from '../services/telegram-bot/storage/kv-operations';
 import { cleanupOldData } from '../cron/cleanup';
 import { semanticSearchItems, semanticSearchNotes, embedNote } from '../services/embed';
+import { buildSendTask } from '../types/queue';
 import type { TelegramMediaMessage, SourceType } from '../types/telegram';
 import type { DbNote } from '../db/d1';
 
@@ -790,9 +791,9 @@ export async function handleActionApi(c: Context<HonoEnv>): Promise<Response> {
 				let queued = 0;
 				for (const item of posts) {
 					try {
-						await c.env.TELEGRAM_SEND_QUEUE.send({
-							type: 'send', channelId, item, settings: resolveFormatSettings(),
-						});
+						await c.env.TELEGRAM_SEND_QUEUE.send(
+							buildSendTask(channelId, item, resolveFormatSettings()),
+						);
 						queued++;
 					} catch (err) {
 						console.error('[API] Failed to queue retry for item', item.id, err);

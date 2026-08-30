@@ -1,4 +1,5 @@
 import type { QueueTask, FetchTask, SendTask } from './types/queue';
+import { buildSendTask } from './types/queue';
 import { Bot, GrammyError } from 'grammy';
 import { sendMediaToChannel, addFailedPost } from './services/telegram-bot';
 import { getAdminConfig } from './services/telegram-bot/storage/kv-operations';
@@ -170,12 +171,23 @@ async function processFetchTask(task: FetchTask, env: Env): Promise<void> {
 		}
 
 		for (const item of toPost) {
-			await env.TELEGRAM_SEND_QUEUE.send({
-				type: 'send',
-				channelId: sub.channel_id,
-				item,
-				settings,
-			});
+			// Queue each item independently — one item the queue refuses must not
+			// fail (and endlessly retry) the whole feed fetch.
+			try {
+				await env.TELEGRAM_SEND_QUEUE.send(buildSendTask(sub.channel_id, item, settings));
+			} catch (err) {
+				console.error(`[Queue] Failed to queue item ${item.id} for ${sub.channel_id}:`, err);
+				try {
+					await insertPostLog(env.DB, {
+						itemId: item.id,
+						chatId: sub.channel_id,
+						messageType: 'text',
+						captionPreview: item.title.slice(0, 200),
+						status: 'error',
+						error: `Queue enqueue failed: ${err instanceof Error ? err.message : String(err)}`,
+					});
+				} catch { /* non-fatal */ }
+			}
 		}
 	}
 }

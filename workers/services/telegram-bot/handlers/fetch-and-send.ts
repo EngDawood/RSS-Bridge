@@ -8,6 +8,7 @@ import { sendFallbackMessage } from '../helpers/fallback-sender';
 import { enrichFeedItems } from '../../../utils/media-enrichment';
 import { getChannelConfigFromD1 } from '../../../db/d1';
 import { addFailedPost, getAdminConfig } from '../storage/kv-operations';
+import { buildSendTask } from '../../../types/queue';
 
 /**
  * Send an alert DM to the admin. Silently fails if notification itself errors.
@@ -66,12 +67,7 @@ export async function fetchAndSendLatest(
 		let failures = 0;
 		for (const item of items) {
 			if (useQueue) {
-				await env.TELEGRAM_SEND_QUEUE.send({
-					type: 'send',
-					channelId: chatId.toString(),
-					item,
-					settings
-				});
+				await env.TELEGRAM_SEND_QUEUE.send(buildSendTask(chatId.toString(), item, settings));
 				continue;
 			}
 			try {
